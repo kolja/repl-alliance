@@ -1,0 +1,61 @@
+
+
+                        *REPL-Alliance*
+
+                                                    *replalliance*
+
+A Neovim plugin that connects with Nrepl and socket-repl Servers
+
+---------------------------------------------------------------------------
+
+INSTALLATION                                        *replalliance-install*
+>
+    Plug 'kolja/repl-alliance'
+<
+
+COMMANDS AND BINDINGS                               *replalliance-commands*
+
+:RAconnect          asks for protocol, host and port and connects to a repl
+
+:RAeval {expr}      sends {expr} to the repl
+
+:RAdescribe         show Commands
+
+:RAloadfile         (re-)evaluates file from the current buffer
+
+<leader>e{motion}   sends the code from {motion} to the repl
+
+<leader>e           in Visual mode: sends selection to the repl
+
+<leader>E           prompts for code in the commandline
+
+<leader>E           in Visual mode: prepopulates the prompt 
+                    with code from selection
+
+For example with |github.com/guns/vim-sexp| installed, you can `<leader>eaf`
+to evaluate the form under the cursor, and `gvp` to replace it with whatever it
+evaluated to.
+
+CONNECT                                             *replalliance-connect*
+
+Repl Alliance uses these variables for configuration:
+>
+    replPort = "59555"
+    replServer = "127.0.0.1"
+    replNamespace = "user"      initial namespace
+    replProtocol = "nrepl"      either "nrepl" or "srepl"
+
+    replVirtual = 1000          for how long to show virtual text
+<
+
+You can set the variables in your vimrc and call `require("nrepl").connect()` or pass the
+values to `connect()` directly, like so:
+>
+    lua repl = require("nrepl").connect(<host>, <port> [,<namespace>])
+<
+
+LICENSE                                             *replalliance-license*
+
+MIT | 2019, Kolja Wilcke
+
+vim:tw=78:ts=8:ft=help:norl:

@@ -101,7 +101,7 @@ function SRepl:print_prompt(code)
         vim.api.nvim_buf_set_name(buffer, namespace)
         vim.api.nvim_buf_set_lines(buffer, -2, -1, false, {last_line..code})
     else
-        vim.api.nvim_buf_set_lines(buffer, n, n, false, {"=> "..code})
+        vim.api.nvim_buf_set_lines(buffer, n, n, false, {self._namespace.."=> "..code})
     end
 end
 

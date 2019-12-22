@@ -8,6 +8,18 @@ log = function (arg)
     vim.api.nvim_command("call input(\""..tostring(arg).."\")")
 end
 
+function Helpers.identity(arg)
+    return arg
+end
+
+function Helpers.getvar(name, default)
+    if pcall(function () vim.api.nvim_get_var(name) end) then
+        return vim.api.nvim_get_var(name)
+    else
+        return default
+    end
+end
+
 function Helpers.last(t)
     if type(t)=="table" then
         return t[table.maxn(t)]

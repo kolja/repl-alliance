@@ -15,11 +15,11 @@ The plugin is a work in progress, so be careful.
 | commands and bindings  | effect                                                           |
 | ---                    | ---                                                              |
 | `:RAconnect`           | asks for protocol, host and port and connects to a repl          |
-| `:RAeval <expr>`       | sends <expr> to the repl                                         |
+| `:RAeval <expr>`       | sends `<expr>` to the repl                                       |
 | `:RAdescribe`          | show Commands                                                    |
 | `:RAloadfile`          | (re-)evaluates file from the current buffer                      |
-| ---                    | ---                                                              |
-| `<leader>e<motion>`    | sends the code from <motion> to the repl                         |
+|                        |                                                                  |
+| `<leader>e<motion>`    | sends the code from `<motion>` to the repl                       |
 | `<leader>e`            | in Visual mode: sends selection to the repl                      |
 | `<leader>E`            | prompts for code in the commandline                              |
 | `<leader>E`            | in Visual mode: prepopulates the prompt with code from selection |
@@ -45,6 +45,11 @@ You can set them in your vimrc and call `require("nrepl"):connect()` or pass the
 
 ```vim
     lua repl = require("nrepl").connect(<host>, <port> [,<namespace>])
+```
+This autocommand will connect with a repl when you open a clojure file:
+
+```vim
+    autocmd FileType clojure lua repl = require("nrepl"):connect()
 ```
 
 ## How to contribute

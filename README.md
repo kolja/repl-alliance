@@ -1,6 +1,6 @@
 <img src="./repl-alliance.svg">
 
-REPL alliance is a plugin for [neovim](https://neovim.io/) that connects with nREPL as well as socket REPL servers.
+A plugin for [neovim](https://neovim.io/) that connects with nREPL as well as socket REPL servers.
 
 The plugin is a work in progress, so be careful.
 
@@ -37,9 +37,11 @@ Repl Alliance uses these variables for configuration:
 
     " for how long to show virtual text (0 : don't show at all)
     replVirtual = 1000
+    " path to the file that will be send to the repl when you call repl:send_blob(<blob>)
+    replBlobPath = `<path>`
 ```
 
-You can set them in your vimrc and call `require("nrepl").connect()` or pass the values to `connect()` directly, like so:
+You can set them in your vimrc and call `require("nrepl"):connect()` or pass the values to `connect()` directly, like so:
 
 ```vim
     lua repl = require("nrepl").connect(<host>, <port> [,<namespace>])

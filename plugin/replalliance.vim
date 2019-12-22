@@ -40,7 +40,7 @@ function EvalCommand(type, ...)
     if index(["prompt", "populate"], a:type) < 0
         " actually, the second argument should be falsy for a:type=="normal"
         " pls refactor
-        call luaeval( 'repl:eval(_A, 1)', @@ )
+        call luaeval( 'repl:eval(_A, {virtual=1})', @@ )
     else
         call luaeval( 'repl:eval(_A)', input(luaeval("repl._namespace").." => ", @@) )
     endif
@@ -54,7 +54,7 @@ function ConnectCommand(...)
     let replHost = input("Host : ", "127.0.0.1")
     let replPort = input("Port : ", "3722")
     let replNamespace = input("Namespace : ", "user")
-    if replProtocol ==# "NRepl"
+    if replProtocol ==? "NRepl"
         lua repl = require("nrepl"):connect()
     else
         lua repl = require("srepl"):connect()

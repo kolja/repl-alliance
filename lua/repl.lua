@@ -134,24 +134,26 @@ function Repl:callback (response)
     return response
 end
 
--- args: code to eval, callback, options: {callback=<callback_fn>,virtual=<bool>}
+-- args: code to eval,
+--       options: { callback=<callback_fn>,
+--                  encode=<encode_fn>,
+--                  decode=<decode_fn>,
+--                  virtual=<bool> }
 function Repl:eval(code, options)
 
     if code == "" then return end
     local opts = options or {}
+
+    self._virtual = opts.virtual and h.getvar("replVirtual")
+    local encode = opts.encode or h.identity
+    local decode = opts.decode or h.identity
+    local callback = opts.callback or self.callback
 
     table.insert(self._log, {code=code})
 
     pcall(function ()
         self:print_prompt(code)
     end)
-
-    local v = h.getvar("replVirtual")
-    if opts.virtual and v then
-        self._virtual = v
-    else
-        self._virtual = nil
-    end
 
     cb_wrap = function (callback)
         local callback = opts.callback or self.callback
@@ -160,7 +162,7 @@ function Repl:eval(code, options)
         end
         local wrapped = vim.schedule_wrap(cb)
         return function (data)
-            wrapped(self:decode(data))
+            wrapped(decode(data))
         end
     end
 
@@ -170,7 +172,7 @@ function Repl:eval(code, options)
         else self:read_stop() end
     end)
 
-    uv.write(self._socket, self:encode(code), function(err)
+    uv.write(self._socket, encode(code), function(err)
         if err then error(self._stream_error or err) end
     end)
 end

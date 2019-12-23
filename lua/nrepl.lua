@@ -11,21 +11,23 @@ function NRepl:connect (host, port, ns)
     return nrepl:new_session()
 end
 
-function NRepl:encode (data, fn)
-    local f = fn or function(code)
-        return {
+function NRepl:eval(code, options)
+    local encode = function (code)
+        local data = {
             code = code,
             op = "eval",
             id = table.maxn(self._log),
             session = self._session,
             ns = self._namespace
         }
+        return b.encode(data)
     end
-    return b.encode(f(data))
-end
-
-function NRepl:decode (data)
-    return b.decode(data)
+    local decode = b.decode
+    return Repl.eval(self, code,
+                     vim.tbl_extend("keep",
+                                    options,
+                                    {encode=encode,
+                                     decode=decode}))
 end
 
 function NRepl:print_prompt (code)

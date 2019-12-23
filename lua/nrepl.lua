@@ -64,18 +64,14 @@ end
 
 function NRepl:describe()
     local id = table.maxn(self._log)
-    local callback = function (response)
-        self:print(vim.inspect(h.keys(response.ops)))
-    end
-    local cb_wrap = function (cb)
-        local wrapped = vim.schedule_wrap(cb)
-        return function (data)
-            return wrapped(b.decode(data))
-        end
+    local cb_wrap = function (data)
+        return vim.schedule_wrap(function (response)
+            self:print(vim.inspect(h.keys(response.ops)))
+        end)(b.decode(data))
     end
     uv.read_start(self._socket, function(err, chunk)
         if err then error(err)
-        elseif chunk then cb_wrap(callback)(chunk)
+        elseif chunk then cb_wrap(chunk)
         else self:read_stop() end
     end)
     uv.write(self._socket, b.encode({op="describe",id=id}), function(err)
@@ -84,35 +80,38 @@ function NRepl:describe()
 end
 
 function NRepl:loadfile()
+
     local id = table.maxn(self._log)
     local file = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     local name = vim.api.nvim_buf_get_name(0)
-    local callback = function(response)
-        if response.ns then
-            self._namespace = response.ns
-            vim.api.nvim_buf_set_name(self:buffer(), response.ns)
-        end
-        self:log(response,"loadfile")
-        self:print("loaded: "..name)
+
+    self:print("loading: "..name)
+
+    local cb_wrap = function (data)
+        return vim.schedule_wrap(function(response)
+            if response.ns then
+                self._namespace = response.ns
+                vim.api.nvim_buf_set_name(self:buffer(), response.ns)
+            end
+            self:log(response,"loadfile")
+        end)(b.decode(data))
     end
-    local cb_wrap = function (cb)
-        local wrapped = vim.schedule_wrap(cb)
-        return function (data)
-            return wrapped(b.decode(data))
-        end
-    end
+
     local data = {
         op = "load-file",
         id = id,
         file = table.concat(file, "\n"),
         session = self._session
     }
+
     self:log(data, "loadfile")
+
     uv.read_start(self._socket, function(err, chunk)
         if err then error(err)
-        elseif chunk then cb_wrap(callback)(chunk)
+        elseif chunk then cb_wrap(chunk)
         else self:read_stop() end
     end)
+
     uv.write(self._socket, b.encode(data), function(err)
         if err then error(self._stream_error or err) end
     end)
@@ -122,25 +121,23 @@ function NRepl:new_session()
 
     local id = table.maxn(self._log)
 
-    local callback = function (response)
-        self._session = response["new-session"]
-        self:log(response["new-session"], "session")
-    end
-    local cb_wrap = function (cb)
-        local wrapped = vim.schedule_wrap(cb)
-        return function (data)
-            return wrapped(b.decode(data))
-        end
+    local cb_wrap = function (data)
+        return vim.schedule_wrap(function (response)
+            self._session = response["new-session"]
+            self:log(response["new-session"], "session")
+        end)(b.decode(data))
     end
 
     uv.read_start(self._socket, function(err, chunk)
         if err then error(err)
-        elseif chunk then cb_wrap(callback)(chunk)
+        elseif chunk then cb_wrap(chunk)
         else self:read_stop() end
     end)
+
     uv.write(self._socket, b.encode({op="clone",id=id}), function(err)
         if err then error(elf._stream_error or err) end
     end)
+
     return self
 end
 

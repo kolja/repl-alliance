@@ -122,14 +122,6 @@ function Repl:buffer()
     return self._buffer
 end
 
-function Repl:encode (data)
-    return data
-end
-
-function Repl:decode (data)
-    return data
-end
-
 function Repl:callback (response)
     return response
 end
@@ -155,20 +147,15 @@ function Repl:eval(code, options)
         self:print_prompt(code)
     end)
 
-    cb_wrap = function (callback)
-        local callback = opts.callback or self.callback
-        local cb = function (data)
-            callback(self, data)
-        end
-        local wrapped = vim.schedule_wrap(cb)
-        return function (data)
-            wrapped(decode(data))
-        end
+    local cb_wrap = function (data)
+        vim.schedule_wrap(function(d)
+            callback(self, d)
+        end)(decode(data))
     end
 
     uv.read_start(self._socket, function(err, chunk)
         if err then error(err)
-        elseif chunk then cb_wrap(callback)(chunk)
+        elseif chunk then cb_wrap(chunk)
         else self:read_stop() end
     end)
 

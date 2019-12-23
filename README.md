@@ -44,7 +44,7 @@ Repl Alliance uses these variables for configuration:
 You can set them in your vimrc and call `require("nrepl"):connect()` or pass the values to `connect()` directly, like so:
 
 ```vim
-    lua repl = require("nrepl").connect(<host>, <port> [,<namespace>])
+    lua repl = require("nrepl"):connect(<host>, <port> [,<namespace>])
 ```
 This autocommand will connect with a repl when you open a clojure file:
 

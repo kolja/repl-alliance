@@ -51,7 +51,7 @@ Repl Alliance uses these variables for configuration:
 You can set the variables in your vimrc and call `require("nrepl").connect()` or pass the
 values to `connect()` directly, like so:
 >
-    lua repl = require("nrepl").connect(<host>, <port> [,<namespace>])
+    lua repl = require("nrepl"):connect(<host>, <port> [,<namespace>])
 <
 
 LICENSE                                             *replalliance-license*

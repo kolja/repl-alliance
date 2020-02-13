@@ -50,18 +50,13 @@ function Repl:connect(host, port, namespace)
     return self
 end
 
-function Repl:send_blob(blob)
-    local path = h.getvar("replBlobPath")
-    if not (path or blob) then
-        return
-    elseif blob then
-        self:eval(blob)
-    else
-        local size = vim.loop.fs_stat(path)["size"]
-        local fh = vim.loop.fs_open(path, "r", 1)
-        local blobfile = vim.loop.fs_read(fh, size, 0):gsub("\n", " ")
-        self:eval(blobfile)
-    end
+function Repl:send_blob(blobpath)
+    local path = blobpath or h.getvar("replBlobPath")
+    if not path then return end
+    local size = vim.loop.fs_stat(path)["size"]
+    local fh = vim.loop.fs_open(path, "r", 1)
+    local blobfile = vim.loop.fs_read(fh, size, 0):gsub("\n", " ")
+    self:eval(blobfile)
     return self
 end
 

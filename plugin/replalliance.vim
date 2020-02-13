@@ -56,6 +56,8 @@ function ConnectCommand(...)
     let replNamespace = input("Namespace : ", "user")
     if replProtocol ==? "NRepl"
         lua repl = require("nrepl"):connect()
+    elseif replProtocol ==? "PRepl"
+        lua repl = require("prepl"):connect()
     else
         lua repl = require("srepl"):connect()
     endif

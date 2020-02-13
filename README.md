@@ -3,6 +3,7 @@
 A plugin for [neovim](https://neovim.io/) that connects with nREPL as well as socket REPL servers.
 
 The plugin is a work in progress, so be careful.
+The prepl protocol uses Treesitter for parsing the server response, which is only available in neovim v0.5 (beta)
 
 ## Installation
 
@@ -33,6 +34,8 @@ Repl Alliance uses these variables for configuration:
     replPort = "59555"
     replServer = "127.0.0.1"
     replNamespace = "user"
+
+    " the Protocol can be srepl (for socket repl), nrepl or prepl
     replProtocol = "nrepl"
 
     " for how long to show virtual text (0 : don't show at all)

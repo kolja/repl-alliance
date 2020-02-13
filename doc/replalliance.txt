@@ -4,7 +4,7 @@
 
                                                     *replalliance*
 
-A Neovim plugin that connects with Nrepl and socket-repl Servers
+A Neovim plugin that connects with Nrepl, Prepl and socket-repl Servers
 
 ---------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ Repl Alliance uses these variables for configuration:
     replPort = "59555"
     replServer = "127.0.0.1"
     replNamespace = "user"      initial namespace
-    replProtocol = "nrepl"      either "nrepl" or "srepl"
+    replProtocol = "nrepl"      either "nrepl", "prepl" or "srepl"
 
     replVirtual = 1000          for how long to show virtual text
 <

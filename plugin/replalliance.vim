@@ -10,6 +10,8 @@ command! RAflush :call luaeval("repl:flush()")
 command! RAconnect :call ConnectCommand(<q-args>)
 command! -nargs=+ RAeval :call EvalCommand("normal", <q-args>)
 
+let g:pluginroot=trim(resolve(expand('<sfile>:p:h')),"plugin")
+
 let g:replPort = get(g:, "replPort", 3722)
 let g:replHost = get(g:, "replHost", "127.0.0.1")
 let g:replNamespace = get(g:, "replNamespace", "user")

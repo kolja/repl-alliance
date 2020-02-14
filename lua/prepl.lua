@@ -5,7 +5,9 @@ local PRepl = Repl:new()
 function PRepl:connect (host, port, ns)
     local unrepl = Repl.connect(self, host, port, ns)
     self:send_blob() -- directly pass filename to send, or set g:replBlobPath = "/path/to/blobfile.clj"
-    vim.treesitter.add_language("bin/clojure.so", "clojure")
+
+    local pluginroot = vim.api.nvim_get_var("pluginroot")
+    vim.treesitter.add_language(pluginroot.."bin/clojure.so", "clojure")
 
     if not self._rbuffer then -- the raw response goes to _rbuffer. Not the human readable output.
         self._rbuffer = vim.api.nvim_create_buf(false, true) -- listed (false), scratch (true)

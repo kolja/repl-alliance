@@ -3,7 +3,7 @@ local h = require('helpers')
 local PRepl = Repl:new()
 
 function PRepl:connect (host, port, ns)
-    local unrepl = Repl.connect(self, host, port, ns)
+    local prepl = Repl.connect(self, host, port, ns)
     self:send_blob() -- directly pass filename to send, or set g:replBlobPath = "/path/to/blobfile.clj"
 
     local pluginroot = vim.api.nvim_get_var("pluginroot")

@@ -51,8 +51,8 @@ function EvalCommand(type, ...)
 endfunction
 
 function ConnectCommand(...)
-    let repls = ["NRepl", "SocketRepl"]
-    let replProtocol = repls[input("Connect with NRepl[0] or socket Repl[1] : ", 0)]
+    let repls = ["NRepl", "SocketRepl", "prepl"]
+    let replProtocol = repls[input("Connect with NRepl[0] socket Repl[1] or prepl[2] ", 0)]
     let replHost = input("Host : ", "127.0.0.1")
     let replPort = input("Port : ", "3722")
     let replNamespace = input("Namespace : ", "user")

@@ -1,5 +1,6 @@
 local Repl = require('repl')
 local SRepl = Repl:new()
+local h = require('helpers')
 
 function SRepl:guess_namespace(str)
     local s = h.last(vim.split(str,"\n"))

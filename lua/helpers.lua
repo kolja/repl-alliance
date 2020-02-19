@@ -138,7 +138,14 @@ local types = {
         return tostring(Helpers.to_string(node, b))
     end,
     tagged_literal = function(node, b)
-        return Helpers.to_string(node, b)
+        local tag = Helpers.to_string(node:named_child(0), b)
+        if (node:named_child_count() == 1) then
+            return {["ratype"] = tag}
+        else
+            return {["ratype"] = tag,
+                    ["value"] = Helpers.to_lua(node:named_child(1), b),
+                    ["raw"] = Helpers.to_string(node:named_child(1), b)}
+        end
     end,
     interop = function(node, b)
         return tostring(Helpers.to_string(node, b))

@@ -23,7 +23,8 @@ function Repl:new (o)
         _socket = nil,
         _session = "",
         _stream_error = nil,
-        _namespace = h.getvar("replNamespace"),
+        _namespace = h.getvar("replNamespace"), -- current clojure namespace
+        _rans = vim.api.nvim_create_namespace("RAnamespace"), -- repl-alliance namespace
         _virtual = h.getvar("replVirtual"),
         _buffer = -1,
         _log = {}

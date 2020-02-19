@@ -60,6 +60,8 @@ function ConnectCommand(...)
         lua repl = require("nrepl"):connect()
     elseif replProtocol ==? "PRepl"
         lua repl = require("prepl"):connect()
+    elseif replProtocol ==? "UnRepl"
+        lua repl = require("unrepl"):connect()
     else
         lua repl = require("srepl"):connect()
     endif

@@ -52,13 +52,13 @@ endfunction
 
 function ConnectCommand(...)
     let repls = ["NRepl", "SocketRepl", "prepl"]
-    let replProtocol = repls[input("Connect with NRepl[0] socket Repl[1] or prepl[2] ", 0)]
-    let replHost = input("Host : ", "127.0.0.1")
-    let replPort = input("Port : ", "3722")
-    let replNamespace = input("Namespace : ", "user")
-    if replProtocol ==? "NRepl"
+    let g:replProtocol = repls[input("Connect with NRepl[0] socket Repl[1] or prepl[2] ", 0)]
+    let g:replHost = input("Host : ", "127.0.0.1")
+    let g:replPort = input("Port : ", "3722")
+    let g:replNamespace = input("Namespace : ", "user")
+    if g:replProtocol ==? "NRepl"
         lua repl = require("nrepl"):connect()
-    elseif replProtocol ==? "PRepl"
+    elseif g:replProtocol ==? "PRepl"
         lua repl = require("prepl"):connect()
     elseif replProtocol ==? "UnRepl"
         lua repl = require("unrepl"):connect()

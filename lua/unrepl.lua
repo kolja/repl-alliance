@@ -1,5 +1,6 @@
 local Repl = require('repl')
 local h = require('helpers')
+local clj = require('Clojure')
 local UnRepl = Repl:new()
 
 function UnRepl:connect (host, port, ns)
@@ -14,7 +15,12 @@ function UnRepl:connect (host, port, ns)
     end
     parser = vim.treesitter.get_parser(self._rbuffer, "clojure")
 
+    vim.api.nvim_command("autocmd BufWinEnter * lua repl:hello()")
     return self
+end
+
+function UnRepl:hello()
+    print("entered REPL window: "..tostring(self:getReplWin()))
 end
 
 function UnRepl:eval(code, options)
@@ -27,22 +33,27 @@ function UnRepl:eval(code, options)
     return Repl.eval(self, code, opts)
 end
 
-function UnRepl:print(obj, id)
+function UnRepl:printo(obj, id)
+
+    -- log to print queue.
 
     local buffer = self:buffer()
     local n = vim.api.nvim_buf_line_count(buffer)
-    local mark_id = vim.api.nvim_buf_set_extmark(id * 1000, self._rans, self._buffer, n, 0, {})
+    if n == 0 then n = 1 end
+    local mark_id = vim.api.nvim_buf_set_extmark(0, self._rans, buffer, n-1, 0, {})
 
     if type(obj) == "string" then
         obj = {obj}
     end
+    table.insert(obj, "\n")
     local pos = vim.api.nvim_buf_get_extmark_by_id(self._buffer, self._rans, mark_id)
-    local replWin = repl.getReplWin()
+    local replWin = repl:getReplWin()
      -- TODO: when the window is closed, remember what needs to be printed
      -- when window is finally opened: flush all the print commands that have accumulated
     if replWin then
+        repl:print("pos: ", pos)
         vim.api.nvim_win_set_cursor(replWin, pos)
-        nvim_put(obj, "c" , true, true)
+        vim.api.nvim_put(obj, "c" , true, true)
     end
 end
 
@@ -52,22 +63,27 @@ function UnRepl:callback (response)
     local ts = parser:parse()
 
     for i = 0,ts:root():named_child_count() - 1 do
-        local luaresp = h.to_lua(ts:root():named_child(i), self._rbuffer)
-        local txtresp = h.to_string(ts:root():named_child(i), self._rbuffer)
-        local key = luaresp[1]
-        local val = luaresp[2]
-        local id = luaresp[3] or 0
+        local response = clj:new({
+            node = ts:root():named_child(i),
+            buffer = self._rbuffer})
+        local lua = response:to_lua()
 
-        if key == ":prompt" and val[":column"] == 1 then
-            self:print("--["..id.."]--> "..table.concat(val,""), id)
+        local key = lua:get({1}):str()
+        local val = lua:get({2})
+        local id = lua:get({3}):str()
+
+        if key == ":prompt" then
+            local column = tonumber(val:get({":column"}):str())
+            if column == 1 then
+                local ns = val:get({"clojure.core/*ns*", 1}):str()
+                self:print(ns.."-> ")
+            end
         end
         if key == ":started-eval" then
             self:log("--started-eval--")
         end
         if key == ":eval" then
-            self:print("--eval--", id)
-            self:print(txtresp, id)
-            self:print(vim.inspect(luaresp), id)
+            self:print(val:str())
             -- self:show_virtual(result)
             -- vim.api.nvim_command("let @+='"..result.."'") -- copy the result
         end

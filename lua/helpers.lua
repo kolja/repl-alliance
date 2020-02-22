@@ -36,11 +36,8 @@ function Helpers.getvar(name, default)
 end
 
 function Helpers.last(t)
-    if type(t)=="table" then
-        return t[table.maxn(t)]
-    else
-        return nil
-    end
+    if not type(t) == "table" then return nil end
+    return t[table.maxn(t)]
 end
 
 function Helpers.butlast(t)
@@ -52,6 +49,12 @@ end
 function Helpers.first(t)
     if not type(t) == "table" then return nil end
     return t[1]
+end
+
+function Helpers.rest(t)
+    local copy = vim.deepcopy(t)
+    table.remove(copy,1)
+    return copy
 end
 
 function Helpers.contains(list, x)
@@ -153,6 +156,7 @@ local types = {
 }
 
 function Helpers.to_lua(node, buffer)
+    if not node then return end
     local n = node:named_child_count()
     local children = {}
     local tt = node:type()
@@ -166,6 +170,7 @@ function Helpers.to_lua(node, buffer)
 end
 
 function Helpers.to_string(node, buffer)
+    if not node then return end
     local startrow, startcol, endrow, endcol = node:range()
     local _, _, bytes = node:end_()
     local lines = vim.api.nvim_buf_get_lines(buffer, startrow, endrow + 1, false)

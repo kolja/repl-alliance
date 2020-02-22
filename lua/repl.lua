@@ -103,6 +103,7 @@ function Repl:buffer()
     if not vim.api.nvim_buf_is_loaded(self._buffer) then
         local buffer_update = function(buffer, tick, first, last, ...)
             vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
+            vim.api.nvim_command("normal zz") -- scroll to center
             return false
         end
         self._buffer = vim.api.nvim_create_buf(true, false)

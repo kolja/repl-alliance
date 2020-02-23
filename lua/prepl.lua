@@ -1,5 +1,6 @@
 local Repl = require('repl')
 local h = require('helpers')
+local clj = require('Clojure')
 local PRepl = Repl:new()
 
 function PRepl:connect (host, port, ns)
@@ -18,55 +19,66 @@ function PRepl:connect (host, port, ns)
 end
 
 function PRepl:eval(code, options)
-    local add_newline = function (str)
-        return str.."\n"
-    end
-    local opts = vim.tbl_extend("keep", options, {
-        encode = add_newline
-    })
-    return Repl.eval(self, code, opts)
+    --local add_newline = function (str)
+    --    return str.."\n"
+    --end
+    --local opts = vim.tbl_extend("keep", options, {
+    --    encode = add_newline
+    --})
+    return Repl.eval(self, code, options) --, opts)
 end
 
 function PRepl:callback (response)
+    response = vim.trim(response)
     self:log(response, "response")
     vim.api.nvim_buf_set_lines(self._rbuffer, 0, -1, false, vim.split(response, "\n"))
     local ts = parser:parse()
-    local luaresponse = h.to_lua(ts:root(), self._rbuffer)
+    local lua = clj:new({
+        node = ts:root(),
+        buffer = self._rbuffer
+    }):to_lua()
 
-    for i,res in ipairs(luaresponse) do
-        if res[":ns"] then
-            self._namespace = h.unescape(res[":ns"])
+    lua:each( function(response)
+        local res = {
+            ns   = response:get(":ns"):str(),
+            form = response:get(":form"):str(),
+            ex   = response:get(":exception"):str(),
+            val  = response:get(":val"):str(),
+            tag  = response:get(":tag"):str()
+        }
+
+        if res.ns then
+            self._namespace = h.unescape(res.ns)
             vim.api.nvim_buf_set_name(self:buffer(), self._namespace)
         end
-        if res[":form"] then
-            self:print(h.unescape(res[":form"]))
+        if res.form then
+            self:print(h.unescape(res.form))
         end
-        if res[":exception"] then
-            local e = res[":val"]
-            local exception = {}
-            if type(e) == "string" then
-                vim.api.nvim_buf_set_lines(self._rbuffer, 0, -1, false, vim.split(h.unescape(e), "\n"))
-                local ts = parser:parse()
-                exception = h.to_lua(ts:root():named_child(0), self._rbuffer)
-            else
-                exception = e
-            end
-            for i,ex in ipairs(exception[":via"]) do
-                local message = h.unescape(ex[":message"])
+        if res.ex == "true" then
+            local ex_value = res.val
+            vim.api.nvim_buf_set_lines(self._rbuffer, 0, -1, false, vim.split(h.unescape(ex_value), "\n"))
+            local ts = parser:parse()
+            local ex = clj:new({
+                node = ts:root(),
+                buffer = self._rbuffer
+            }):to_lua()
+
+            local via = ex:get({1, ":via"}):each(function (ex)
+                local message = h.unescape(ex:get(":message"):str())
                 if message then
                     vim.api.nvim_err_writeln(message)
                     self:show_virtual(message)
                 end
-                self:print(table.concat({ex[":type"], message}, ": "))
-                self:print("at "..table.concat(ex[":at"], " "))
-            end
-        elseif res[":tag"] == ":ret" or res[":tag"] == ":out" then
-            local result = h.unescape(res[":val"])
+                self:print(ex:get(":type"):str()..": "..message)
+                self:print("at "..ex:get(":at"):str())
+            end)
+        else 
+            local result = h.unescape(res.val)
             self:print(self._namespace.."=> "..result)
             self:show_virtual(result)
             vim.api.nvim_command("let @+='"..result.."'") -- copy the result
         end
-    end
+    end)
 end
 
 function PRepl:describe ()

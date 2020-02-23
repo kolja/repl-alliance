@@ -53,8 +53,8 @@ function Clojure:str()
     local elements = {}
     local str = ""
     if #(self.children) > 0 then
-        local open = self.delimiter[1] or "<"
-        local close = self.delimiter[2] or ">"
+        local open = (self.delimiter and self.delimiter[1]) or "<"
+        local close = (self.delimiter and self.delimiter[2]) or ">"
         for i=1,#(self.children) do
             table.insert(elements, self.children[i]:str())
         end
@@ -67,10 +67,17 @@ function Clojure:str()
     return str
 end
 
+function Clojure:each(fn)
+    for i,v in ipairs(self.children) do
+        fn(v)
+    end
+end
+
 function Clojure:get(path)
     -- will never return nil. Will always at least return something
     -- that get(), str() or val() can be called on.
     local m = {}
+    if type(path) == "string" then path = {path} end
     m.get = function() return m end
     m.str = function() return "nil" end
     m.val = function() return nil end
@@ -110,7 +117,7 @@ types = {
         local n = o.node:named_child_count()
         for i=0,n-1 do
             o:add(Clojure:new({
-                node = node:named_child(i),
+                node = o.node:named_child(i),
                 buffer = o.buffer,
                 delimiter = {"(", ")"}
             }):to_lua())

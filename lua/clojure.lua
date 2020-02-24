@@ -15,13 +15,19 @@ local concat = function(tbl, separator)
     return table.concat(elements, separator)
 end
 
+Clojure.intercept = nil
+Clojure.buffer = nil
+
 function Clojure:new (config)
+    Clojure.intercept = Clojure.intercept or config.intercept
+    Clojure.buffer = Clojure.buffer or config.buffer
     local conf = config or {}
     local obj = vim.tbl_extend( "keep", conf, {
         node = conf.node,
-        buffer = conf.buffer,
+        buffer = Clojure.buffer,
         ratype = conf.node:type(),
-        children = {}
+        children = {},
+        intercept = Clojure.intercept
     })
     setmetatable(obj, self)
     self.__index = self
@@ -46,12 +52,13 @@ function Clojure:raw_string()
     local _, _, bytes = node:end_()
     local lines = vim.api.nvim_buf_get_lines(buffer, startrow, endrow + 1, false)
     local str = table.concat(lines, "")
-    return  string.sub(str, startcol+1, endcol)
+    return string.sub(str, startcol+1, endcol)
 end
 
 function Clojure:str()
     local elements = {}
     local str = ""
+
     if #(self.children) > 0 then
         local open = (self.delimiter and self.delimiter[1]) or "<"
         local close = (self.delimiter and self.delimiter[2]) or ">"
@@ -64,12 +71,19 @@ function Clojure:str()
     else
         str = self:raw_string()
     end
+
+    -- string-middleware:
+    local interc = self.intercept[self.ratype]
+    if interc then
+        str = interc(self, str)
+    end
+
     return str
 end
 
 function Clojure:each(fn)
     for i,v in ipairs(self.children) do
-        fn(v)
+        fn(v,i)
     end
 end
 
@@ -118,7 +132,6 @@ types = {
         for i=0,n-1 do
             o:add(Clojure:new({
                 node = o.node:named_child(i),
-                buffer = o.buffer,
                 delimiter = {"(", ")"}
             }):to_lua())
         end
@@ -127,7 +140,6 @@ types = {
     ["nil"] = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "nil",
                 string = "nil"})
     end,
@@ -135,94 +147,112 @@ types = {
         local vector = Clojure:new({
             ratype = "vector",
             node = o.node,
-            buffer = o.buffer,
             delimiter = {"[", "]"}})
         local n = o.node:named_child_count()
         for i=0,n-1 do
-            vector:add(Clojure:new({node = o.node:named_child(i),
-                                    buffer = o.buffer}):to_lua())
+            vector:add(Clojure:new({node = o.node:named_child(i)}):to_lua())
         end
         return vector
     end,
     list = function(o)
         local list = Clojure:new({ratype = "list",
                                   node = o.node,
-                                  buffer = o.buffer,
                                   delimiter = {"(", ")"}})
         local n = o.node:named_child_count()
         for i=0,n-1 do
-            list:add(Clojure:new({node = o.node:named_child(i),
-                                  buffer = o.buffer}):to_lua())
+            list:add(Clojure:new({node = o.node:named_child(i)}):to_lua())
         end
         return list
+    end,
+    set = function(o)
+        local set = Clojure:new({ratype = "set",
+                                  node = o.node,
+                                  delimiter = {"#{", "}"}})
+        local n = o.node:named_child_count()
+        for i=0,n-1 do
+            set:add(Clojure:new({node = o.node:named_child(i)}):to_lua())
+        end
+        return set
     end,
     hash_map = function(o)
         local m = Clojure:new({
             node = o.node,
-            buffer = o.buffer,
             ratype = "hashMap",
             delimiter = {"{", "}"}})
         local kv = o.node:named_child_count()
         if kv<2 then return m end
         for i=0,kv-2,2 do
-            m:add(Clojure:new({node = o.node:named_child(i), buffer = o.buffer}):to_lua())
-            m:add(Clojure:new({node = o.node:named_child(i+1), buffer = o.buffer}):to_lua())
+            m:add(Clojure:new({node = o.node:named_child(i)}):to_lua())
+            m:add(Clojure:new({node = o.node:named_child(i+1)}):to_lua())
         end
         return m
     end,
     number = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "number",
                 string = o:raw_string()})
     end,
     boolean = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "boolean",
                 string = o:raw_string()})
     end,
     string = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "string",
                 string = o:raw_string()})
     end,
     keyword = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "keyword",
                 string = o:raw_string()})
     end,
     symbol = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "symbol",
                 string = o:raw_string()})
     end,
-    tagged_literal = function(o)
-        local to_string = function()
-            -- TODO: eventually make a distinction here
-            return "●"
+    quote = function(o)
+        local quote = Clojure:new({ratype = "quote",
+                                  node = o.node,
+                                  delimiter = {"(quote ", ")"}})
+        local n = o.node:named_child_count()
+        for i=0,n-1 do
+            quote:add(Clojure:new({node = o.node:named_child(i)}):to_lua())
         end
-        local tag = Clojure:new({
-            node = o.node:named_child(0),
-            buffer = o.buffer})
+        return quote
+    end,
+    tag = function(o)
         return Clojure:new({
-            node = o.node:named_child(1),
-            buffer = o.buffer,
-            ratype = "tag-"..tag:raw_string(),
-            string = to_string()}):to_lua()
+                node = o.node,
+                ratype = "tag",
+                string = o:raw_string()})
+    end,
+    elision = function(o)
+        return Clojure:new({
+                node = o.node,
+                ratype = "elision",
+                string = "●"})
+    end,
+    tagged_literal = function(o)
+        local tagged = Clojure:new({
+            ratype = "tagged_literal",
+            node = o.node,
+            delimiter = {"<", ">"}})
+        local n = o.node:named_child_count()
+        for i=0,n-1 do
+            tagged:add(Clojure:new({node = o.node:named_child(i)}):to_lua())
+        end
+        return tagged
     end,
     interop = function(o)
         return Clojure:new({
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "interop",
                 string = o:raw_string()})
     end,
@@ -235,7 +265,6 @@ types = {
         else
             obj = {
                 node = o.node,
-                buffer = o.buffer,
                 ratype = "unknownType",
                 string = "unrecoginzed type: "..o.node:type()}
         end

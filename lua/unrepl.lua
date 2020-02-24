@@ -7,11 +7,19 @@ function UnRepl:connect (host, port, ns)
     local unrepl = Repl.connect(self, host, port, ns)
     local pluginroot = vim.api.nvim_get_var("pluginroot")
 
+    --local buffer_update = function(buffer, tick, first, last, ...)
+    --    vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
+    --    vim.api.nvim_command("normal zz") -- scroll to center
+    --    return false
+    --end
+
     self:send_blob(pluginroot.."bin/blob.clj")
     vim.treesitter.add_language(pluginroot.."bin/clojure.so", "clojure")
 
+    self.elisions = {}
+
     if not self._rbuffer then -- the raw response goes to _rbuffer. Not the human readable output.
-        self._rbuffer = vim.api.nvim_create_buf(true, true) -- listed (false), scratch (true)
+        self._rbuffer = vim.api.nvim_create_buf(false, true) -- listed (false), scratch (true)
     end
     parser = vim.treesitter.get_parser(self._rbuffer, "clojure")
 
@@ -63,9 +71,33 @@ function UnRepl:callback (response)
     local ts = parser:parse()
 
     for i = 0,ts:root():named_child_count() - 1 do
+        local middleware = {
+            tagged_literal = function(obj, orig_str)
+                local text = ""
+                local typ = obj.children[1].ratype
+                local tag = obj.children[1]:str()
+                local literal = obj.children[2]
+                if typ == "elision" then
+                    local action = literal:get({":get"})
+                    local key = action:get({2})
+                    -- register and action for this elision
+                    if action then
+                        table.insert(self.elisions, {key = key:str(), action = action:str()})
+                    end
+                    text = "●"
+                elseif tag == "#unrepl/ratio" then
+                    text = literal.children[1]:str().."/"..literal.children[2]:str()
+                elseif tag == "#unrepl/ns" then
+                    text = literal:str()
+                elseif tag == "#unrepl/string" then
+                    text = literal:str()
+                end
+                return text
+            end}
         local response = clj:new({
             node = ts:root():named_child(i),
-            buffer = self._rbuffer})
+            buffer = self._rbuffer,
+            intercept = middleware})
         local lua = response:to_lua()
 
         local key = lua:get({1}):str()

@@ -79,7 +79,13 @@ function Repl:log(msg, where)
 end
 
 function Repl:print (...)
-    local buffer = self:buffer()
+
+    local buffer_update = function(buffer, tick, first, last, ...)
+        vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
+        vim.api.nvim_command("normal zz") -- scroll to center
+        return false
+    end
+    local buffer = self:buffer(buffer_update)
     local str = table.concat( h.map(function (arg)
         if type(arg) == "string" then
             return arg
@@ -99,13 +105,8 @@ function Repl:getReplWin()
     return h.first(h.filter( filterfn, vim.api.nvim_list_wins()))
 end
 
-function Repl:buffer()
+function Repl:buffer(buffer_update)
     if not vim.api.nvim_buf_is_loaded(self._buffer) then
-        local buffer_update = function(buffer, tick, first, last, ...)
-            vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
-            vim.api.nvim_command("normal zz") -- scroll to center
-            return false
-        end
         self._buffer = vim.api.nvim_create_buf(true, false)
         vim.api.nvim_buf_set_name(self._buffer, self._namespace)
         vim.api.nvim_buf_set_option(self._buffer, 'buftype', 'nofile')
@@ -114,7 +115,9 @@ function Repl:buffer()
         vim.api.nvim_win_set_buf(0,self._buffer)
         vim.api.nvim_command("setlocal nonumber")
         vim.api.nvim_command("setlocal nolist")
-        vim.api.nvim_buf_attach(self._buffer, false, {on_lines=buffer_update})
+        if buffer_update then
+            vim.api.nvim_buf_attach(self._buffer, false, {on_lines=buffer_update})
+        end
     end
     return self._buffer
 end

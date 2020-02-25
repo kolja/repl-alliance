@@ -19,6 +19,17 @@ function Helpers.unescape(str)
     end
 end
 
+function Helpers.occur(str, tag)
+    local t = {}
+    local i = 0
+    while true do
+      i = string.find(str, tag, i+1)
+      if not i then break end
+      table.insert(t, i)
+    end
+    return #t > 0 and t
+end
+
 function Helpers.log(arg)
     vim.api.nvim_command("call input(\""..tostring(arg).."\")")
 end

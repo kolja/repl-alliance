@@ -17,10 +17,14 @@ end
 
 Clojure.intercept = nil
 Clojure.buffer = nil
+Clojure.elision_symbol = "●"
 
 function Clojure:new (config)
+
     Clojure.intercept = Clojure.intercept or config.intercept
     Clojure.buffer = Clojure.buffer or config.buffer
+    Clojure.elision_symbol = Clojure.elision_symbol or config.elision_symbol
+
     local conf = config or {}
     local obj = vim.tbl_extend( "keep", conf, {
         node = conf.node,
@@ -237,7 +241,7 @@ types = {
         return Clojure:new({
                 node = o.node,
                 ratype = "elision",
-                string = "●"})
+                string = Clojure.elision_symbol})
     end,
     tagged_literal = function(o)
         local tagged = Clojure:new({

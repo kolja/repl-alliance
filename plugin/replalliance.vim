@@ -17,6 +17,7 @@ let g:replHost = get(g:, "replHost", "127.0.0.1")
 let g:replNamespace = get(g:, "replNamespace", "user")
 let g:replProtocol = get(g:, "replProtocol", "nrepl")
 let g:replVirtual = get(g:, "replVirtual", 1000)
+let g:replElision = get(g:, "replElision", "●")
 
 function EvalCommand(type, ...)
     let sel_save = &selection

@@ -7,16 +7,12 @@ function UnRepl:connect (host, port, ns)
     local unrepl = Repl.connect(self, host, port, ns)
     local pluginroot = vim.api.nvim_get_var("pluginroot")
 
-    --local buffer_update = function(buffer, tick, first, last, ...)
-    --    vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
-    --    vim.api.nvim_command("normal zz") -- scroll to center
-    --    return false
-    --end
-
     self:send_blob(pluginroot.."bin/blob.clj")
     vim.treesitter.add_language(pluginroot.."bin/clojure.so", "clojure")
 
     self.elisions = {}
+    self.elision_index = 0
+    self.elision_symbol = vim.api.nvim_get_var("g:replElision") or "●"
 
     if not self._rbuffer then -- the raw response goes to _rbuffer. Not the human readable output.
         self._rbuffer = vim.api.nvim_create_buf(false, true) -- listed (false), scratch (true)
@@ -41,28 +37,64 @@ function UnRepl:eval(code, options)
     return Repl.eval(self, code, opts)
 end
 
+function UnRepl:next_elision()
+    local replWin = repl:getReplWin()
+    local i = self.elision_index + 1
+    if i > #self.elisions then i = 1 end
+    local e = self.elisions[i]
+    local pos = vim.api.nvim_buf_get_extmark_by_id(self._buffer, self._rans, e.mark)
+    vim.api.nvim_win_set_cursor(replWin, pos)
+end
+
+
 function UnRepl:printo(obj, id)
 
+    local buffer_update = function(buffer, tick, first, last, lines, ...)
+        -- find elisions and link them to extmarks in the repl buffer
+        local idx = 1
+        for i,v in ipairs(self.elisions) do
+            if not v.mark then
+                idx = i
+            end
+        end
+        for i,v in ipairs(lines) do
+            local oc = h.occur(v, self.elision_symbol)
+            if oc then
+                for j,col in ipairs(oc) do
+                    local mark_id = vim.api.nvim_buf_set_extmark(0, self._rans, buffer, first+i, col, {})
+                    local e = self.elisons[idx]
+                    e.mark = mark_id
+                    idx = idx + 1
+                end
+            end
+        end
+        self.elision_index = #(self.elisions)
+        vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
+        vim.api.nvim_command("normal zz") -- scroll to center
+        return false
+    end
     -- log to print queue.
 
-    local buffer = self:buffer()
-    local n = vim.api.nvim_buf_line_count(buffer)
-    if n == 0 then n = 1 end
-    local mark_id = vim.api.nvim_buf_set_extmark(0, self._rans, buffer, n-1, 0, {})
+    local buffer = self:buffer(buffer_update)
 
-    if type(obj) == "string" then
-        obj = {obj}
-    end
-    table.insert(obj, "\n")
-    local pos = vim.api.nvim_buf_get_extmark_by_id(self._buffer, self._rans, mark_id)
-    local replWin = repl:getReplWin()
+    --local replWin = repl:getReplWin()
      -- TODO: when the window is closed, remember what needs to be printed
      -- when window is finally opened: flush all the print commands that have accumulated
-    if replWin then
-        repl:print("pos: ", pos)
-        vim.api.nvim_win_set_cursor(replWin, pos)
-        vim.api.nvim_put(obj, "c" , true, true)
+    --if replWin then
+    --    repl:print("pos: ", pos)
+    --    vim.api.nvim_win_set_cursor(replWin, pos)
+    --    vim.api.nvim_put(obj, "c" , true, true)
+    --end
+
+    -- or perhaps just call repl:print() instead:
+    if type(obj) == "string" then
+        str = obj
+    else
+        str = vim.inspect(obj)
     end
+    local n = vim.api.nvim_buf_line_count(buffer)
+    if str == "" then return end
+    vim.api.nvim_buf_set_lines(buffer, n, -1, false, vim.split(str,"\n"))
 end
 
 function UnRepl:callback (response)
@@ -84,7 +116,7 @@ function UnRepl:callback (response)
                     if action then
                         table.insert(self.elisions, {key = key:str(), action = action:str()})
                     end
-                    text = "●"
+                    text = self.elision_symbol
                 elseif tag == "#unrepl/ratio" then
                     text = literal.children[1]:str().."/"..literal.children[2]:str()
                 elseif tag == "#unrepl/ns" then
@@ -97,6 +129,7 @@ function UnRepl:callback (response)
         local response = clj:new({
             node = ts:root():named_child(i),
             buffer = self._rbuffer,
+            elision_symbol = self.elision_symbol,
             intercept = middleware})
         local lua = response:to_lua()
 

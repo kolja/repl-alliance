@@ -10,6 +10,12 @@ command! RAflush :call luaeval("repl:flush()")
 command! RAconnect :call ConnectCommand(<q-args>)
 command! -nargs=+ RAeval :call EvalCommand("normal", <q-args>)
 
+" repl-window (Filetype repl) commands
+command! RAnextElision lua repl:next_elision()
+command! RAevalElision lua repl:eval_elision()
+autocmd FileType repl nnoremap <leader>n :RAnextElision<cr>
+" autocmd FileType repl nnoremap E :RAevalElision<cr>
+
 let g:pluginroot=trim(resolve(expand('<sfile>:p:h')),"plugin")
 
 let g:replPort = get(g:, "replPort", 3722)

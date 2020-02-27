@@ -5,26 +5,30 @@ local UnRepl = Repl:new()
 
 function UnRepl:connect (host, port, ns)
     local unrepl = Repl.connect(self, host, port, ns)
-    local pluginroot = vim.api.nvim_get_var("pluginroot")
-
-    self:send_blob(pluginroot.."bin/blob.clj")
-    vim.treesitter.add_language(pluginroot.."bin/clojure.so", "clojure")
-
-    self.elisions = {}
-    self.elision_index = 0
-    self.elision_symbol = vim.api.nvim_get_var("g:replElision") or "●"
+    local pluginroot = h.getvar("pluginroot", "/")
 
     if not self._rbuffer then -- the raw response goes to _rbuffer. Not the human readable output.
         self._rbuffer = vim.api.nvim_create_buf(false, true) -- listed (false), scratch (true)
     end
+    vim.treesitter.add_language(pluginroot.."bin/clojure.so", "clojure")
     parser = vim.treesitter.get_parser(self._rbuffer, "clojure")
 
-    vim.api.nvim_command("autocmd BufWinEnter * lua repl:hello()")
+    self.print_queue = {}
+    self.elisions = {}
+    self.elision_index = 0
+    self.elision_symbol = h.getvar("replElision", "●")
+
+    self:send_blob(pluginroot.."bin/blob.clj")
+
+    vim.api.nvim_command("autocmd BufWinEnter * lua repl:bufferChange()")
     return self
 end
 
-function UnRepl:hello()
-    print("entered REPL window: "..tostring(self:getReplWin()))
+function UnRepl:bufferChange()
+    local replWin = self:getReplWin()
+    if replWin then
+        self:flushPrintQueue()
+    end
 end
 
 function UnRepl:eval(code, options)
@@ -42,90 +46,118 @@ function UnRepl:next_elision()
     local i = self.elision_index + 1
     if i > #self.elisions then i = 1 end
     local e = self.elisions[i]
-    local pos = vim.api.nvim_buf_get_extmark_by_id(self._buffer, self._rans, e.mark)
-    vim.api.nvim_win_set_cursor(replWin, pos)
+    if e and replWin then
+        local pos = vim.api.nvim_buf_get_extmark_by_id(self._buffer, self._rans, e.mark)
+        vim.api.nvim_win_set_cursor(replWin, pos)
+    end
 end
 
 
-function UnRepl:printo(obj, id)
+function UnRepl:linkMarks(lines)
+    -- find elisions and link them to extmarks in the repl buffer
+    local idx = 1
+    local buffer = self._buffer
+    local e = self.elisions
+    while (e[idx] and e[idx].mark) do idx = idx + 1 end
+    local n = vim.api.nvim_buf_line_count(buffer)
 
-    local buffer_update = function(buffer, tick, first, last, lines, ...)
-        -- find elisions and link them to extmarks in the repl buffer
-        local idx = 1
-        for i,v in ipairs(self.elisions) do
-            if not v.mark then
-                idx = i
+    for i,v in ipairs(lines) do
+        local oc = h.occur(v, self.elision_symbol)
+        if oc then
+            for j,col in ipairs(oc) do
+                --local mark_id = vim.api.nvim_buf_set_extmark(buffer, self._rans, buffer, n+i, col-1, {})
+                --e[idx].mark = mark_id
+                e[idx].pos = {n+i, col}
+                idx = idx + 1
             end
         end
-        for i,v in ipairs(lines) do
-            local oc = h.occur(v, self.elision_symbol)
-            if oc then
-                for j,col in ipairs(oc) do
-                    local mark_id = vim.api.nvim_buf_set_extmark(0, self._rans, buffer, first+i, col, {})
-                    local e = self.elisons[idx]
-                    e.mark = mark_id
-                    idx = idx + 1
-                end
-            end
-        end
-        self.elision_index = #(self.elisions)
-        vim.api.nvim_win_set_cursor(self:getReplWin(), {last, 0})
+    end
+end
+
+function UnRepl:print(obj, id)
+    local replWin = repl:getReplWin() -- can use self here?
+    if replWin and obj == nil then self:flushPrintQueue() end
+
+    local buffer_update = function(buffer, tick, first, last, new_last, ...)
+        -- vim.api.nvim_win_set_cursor(self:getReplWin(), {last-1, 0})
         vim.api.nvim_command("normal zz") -- scroll to center
         return false
     end
-    -- log to print queue.
-
+    local str = ""
+    local queue = self.print_queue or {}
     local buffer = self:buffer(buffer_update)
 
-    --local replWin = repl:getReplWin()
-     -- TODO: when the window is closed, remember what needs to be printed
-     -- when window is finally opened: flush all the print commands that have accumulated
-    --if replWin then
-    --    repl:print("pos: ", pos)
-    --    vim.api.nvim_win_set_cursor(replWin, pos)
-    --    vim.api.nvim_put(obj, "c" , true, true)
-    --end
-
-    -- or perhaps just call repl:print() instead:
     if type(obj) == "string" then
         str = obj
     else
         str = vim.inspect(obj)
     end
-    local n = vim.api.nvim_buf_line_count(buffer)
-    if str == "" then return end
-    vim.api.nvim_buf_set_lines(buffer, n, -1, false, vim.split(str,"\n"))
+    str = vim.split(str, "\n")
+    table.insert(str, "")
+
+    table.insert(queue, {str = str, id = id})
+
+    self:linkMarks(str)
+    if replWin then self:flushPrintQueue() end
+end
+
+function UnRepl:flushPrintQueue()
+    -- elisions: {key: ":X__123", action: "(repl/get?9287 :stuff)", mark: 4}
+    local replWin = repl:getReplWin() -- can use self here?
+    local buffer = self._buffer
+    -- vim.api.nvim_set_current_buf(buffer)
+    local e = self.elisions
+    for i,v in ipairs(self.print_queue) do
+        if v.id then
+            local el = h.first(h.filter(function(el) return el.key == v.id end, e))
+            -- local mark = (el and el.mark)
+            -- local pos = vim.api.nvim_buf_get_extmark_by_id(buffer, self._rans, mark)
+            local pos = (el and el.pos)
+            vim.api.nvim_win_set_cursor(replWin, pos)
+            vim.api.nvim_command("normal x")
+            vim.api.nvim_put(v.str, "c" , true, true)
+            -- delete extmark and entry in self.elisions
+            nvim_buf_del_extmark(buffer, self._rans, mark)
+            self.elisions = h.filter(function(el) return not (el.key == v.id) end, e)
+        else
+            local line = vim.api.nvim_buf_line_count(buffer)
+            local col = string.len(vim.api.nvim_buf_get_lines(0, line-1, -1, false)[1])
+            vim.api.nvim_win_set_cursor(replWin, {line, col})
+            vim.api.nvim_put(v.str, "c" , true, true)
+        end
+    end
+    self.print_queue = {}
 end
 
 function UnRepl:callback (response)
     self:log(response, "response")
     vim.api.nvim_buf_set_lines(self._rbuffer, 0, -1, false, vim.split(response, "\n"))
     local ts = parser:parse()
+    local middleware = {
+        tagged_literal = function(obj, orig_str)
+            local text = ""
+            local typ = obj.children[1].ratype
+            local tag = obj.children[1]:str()
+            local literal = obj.children[2]
+            if typ == "elision" then
+                local action = literal:get({":get"})
+                local key = action:get({2})
+                -- register and action for this elision
+                if action then
+                    table.insert(self.elisions, {key = key:str(), action = action:str()})
+                end
+                text = self.elision_symbol
+            elseif tag == "#unrepl/ratio" then
+                text = literal.children[1]:str().."/"..literal.children[2]:str()
+            elseif tag == "#unrepl/ns" then
+                text = literal:str()
+            elseif tag == "#unrepl/string" then
+                text = literal:str()
+            end
+            return text
+        end}
 
     for i = 0,ts:root():named_child_count() - 1 do
-        local middleware = {
-            tagged_literal = function(obj, orig_str)
-                local text = ""
-                local typ = obj.children[1].ratype
-                local tag = obj.children[1]:str()
-                local literal = obj.children[2]
-                if typ == "elision" then
-                    local action = literal:get({":get"})
-                    local key = action:get({2})
-                    -- register and action for this elision
-                    if action then
-                        table.insert(self.elisions, {key = key:str(), action = action:str()})
-                    end
-                    text = self.elision_symbol
-                elseif tag == "#unrepl/ratio" then
-                    text = literal.children[1]:str().."/"..literal.children[2]:str()
-                elseif tag == "#unrepl/ns" then
-                    text = literal:str()
-                elseif tag == "#unrepl/string" then
-                    text = literal:str()
-                end
-                return text
-            end}
         local response = clj:new({
             node = ts:root():named_child(i),
             buffer = self._rbuffer,
@@ -153,20 +185,20 @@ function UnRepl:callback (response)
             -- vim.api.nvim_command("let @+='"..result.."'") -- copy the result
         end
         if key == ":out" then
-            self:print("--out--", id)
-            self:print(val, id)
+            self:print("--out--")
+            self:print(val)
         end
         if key == ":err" then
-            self:print("--err--", id)
-            self:print(val, id)
+            self:print("--err--")
+            self:print(val)
         end
         if key == ":log" then
-            self:print("--log--", id)
-            self:print(val, id)
+            self:print("--log--")
+            self:print(val)
         end
         if key == ":exception" then
-            self:print("--exception--", id)
-            self:print(val, id)
+            self:print("--exception--")
+            self:print(val)
         end
     end
 end

@@ -15,13 +15,14 @@ local concat = function(tbl, separator)
     return table.concat(elements, separator)
 end
 
-Clojure.intercept = nil
+Clojure.intercept = h.identity
 Clojure.buffer = nil
 Clojure.elision_symbol = "●"
+Clojure.elisions = {}
 
 function Clojure:new (config)
 
-    Clojure.intercept = Clojure.intercept or config.intercept
+    Clojure.intercept = config.intercept or Clojure.intercept
     Clojure.buffer = Clojure.buffer or config.buffer
     Clojure.elision_symbol = Clojure.elision_symbol or config.elision_symbol
 
@@ -85,6 +86,30 @@ function Clojure:str()
     return str
 end
 
+function Clojure:is(t)
+    return (self.ratype == t)
+end
+
+function Clojure:resolve(id, obj)
+    if self:is("tagged_literal") and self.children[1]:is("elision") then
+        if not obj then
+            -- call eval
+            local action = self.children[2]:get({":get"})
+            local key = action:get({2})
+            if id == key then -- this is the elision we are looking for
+                repl:eval(action)
+            end
+        else
+            self.children[1].resolved = obj
+        end
+    else
+        self:each(function(element)
+            Clojure:resolve(id, obj)
+        end)
+    end
+    return self
+end
+
 function Clojure:each(fn)
     for i,v in ipairs(self.children) do
         fn(v,i)
@@ -92,18 +117,21 @@ function Clojure:each(fn)
 end
 
 function Clojure:get(path)
+    if type(path) == "string" then path = {path} end
     -- will never return nil. Will always at least return something
     -- that get(), str() or val() can be called on.
-    local m = {}
-    if type(path) == "string" then path = {path} end
-    m.get = function() return m end
-    m.str = function() return "nil" end
-    m.val = function() return nil end
+    local m = {
+       get = function() return self end,
+       str = function() return "nil" end,
+       val = function() return nil end,
+       is =  function() return false end
+    }
+
     if #path == 0 then
         return self
     end
     local get_key = function(obj, key)
-        if not obj.ratype == "hash_map" then
+        if not obj:is("hash_map") then
             error("trying to access "..key.." in "..obj.ratype)
         end
         local n = #(obj.children)
@@ -181,7 +209,7 @@ types = {
     hash_map = function(o)
         local m = Clojure:new({
             node = o.node,
-            ratype = "hashMap",
+            ratype = "hash_map",
             delimiter = {"{", "}"}})
         local kv = o.node:named_child_count()
         if kv<2 then return m end

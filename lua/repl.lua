@@ -61,7 +61,8 @@ function Repl:send_blob(blobpath)
     return self
 end
 
-function Repl:log(msg, where)
+function Repl:log(msg, where, elision)
+    -- log: type (eg: eval, debug), code, lua
     local field = where or "debug"
     local i=0
     local lastentry = h.last(self._log)

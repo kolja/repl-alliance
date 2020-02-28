@@ -104,8 +104,9 @@ end
 function UnRepl:flushPrintQueue()
     -- elisions: {key: ":X__123", action: "(repl/get?9287 :stuff)", mark: 4}
     local replWin = repl:getReplWin() -- can use self here?
+    local currentBuffer = vim.api.nvim_get_current_buf()
     local buffer = self._buffer
-    -- vim.api.nvim_set_current_buf(buffer)
+    vim.api.nvim_set_current_buf(buffer)
     local e = self.elisions
     for i,v in ipairs(self.print_queue) do
         if v.id then
@@ -123,9 +124,11 @@ function UnRepl:flushPrintQueue()
             local line = vim.api.nvim_buf_line_count(buffer)
             local col = string.len(vim.api.nvim_buf_get_lines(0, line-1, -1, false)[1])
             vim.api.nvim_win_set_cursor(replWin, {line, col})
+
             vim.api.nvim_put(v.str, "c" , true, true)
         end
     end
+    vim.api.nvim_set_current_buf(currentBuffer)
     self.print_queue = {}
 end
 
@@ -136,22 +139,28 @@ function UnRepl:callback (response)
     local middleware = {
         tagged_literal = function(obj, orig_str)
             local text = ""
-            local typ = obj.children[1].ratype
-            local tag = obj.children[1]:str()
+            local tag = obj.children[1]
+            local tagstr = tag:str()
             local literal = obj.children[2]
-            if typ == "elision" then
+            if tag:is("elision") then
                 local action = literal:get({":get"})
                 local key = action:get({2})
-                -- register and action for this elision
-                if action then
+                local resolved = tag.resolved
+                if resolved then
+                    text = resolved:str()
+                elseif action then
                     table.insert(self.elisions, {key = key:str(), action = action:str()})
+                    text = self.elision_symbol
+                else
+                    text = self.elision_symbol
                 end
-                text = self.elision_symbol
-            elseif tag == "#unrepl/ratio" then
+            elseif tagstr == "#unrepl/ratio" then
                 text = literal.children[1]:str().."/"..literal.children[2]:str()
-            elseif tag == "#unrepl/ns" then
+            elseif tagstr == "#unrepl/*ns*" then
+                text = literal.children[1]:str()
+            elseif tagstr == "#unrepl/ns" then
                 text = literal:str()
-            elseif tag == "#unrepl/string" then
+            elseif tagstr == "#unrepl/string" then
                 text = literal:str()
             end
             return text
@@ -169,10 +178,12 @@ function UnRepl:callback (response)
         local val = lua:get({2})
         local id = lua:get({3}):str()
 
+        if key == ":read" then
+        end
         if key == ":prompt" then
             local column = tonumber(val:get({":column"}):str())
             if column == 1 then
-                local ns = val:get({"clojure.core/*ns*", 1}):str()
+                local ns = val:get({"clojure.core/*ns*", 2, 1}):str()
                 self:print(ns.."-> ")
             end
         end

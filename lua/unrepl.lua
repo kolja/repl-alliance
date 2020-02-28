@@ -97,8 +97,6 @@ function UnRepl:print()
     }
     -- can use self (instead of repl:getReplWin() here?
     if repl:getReplWin() then log:print(buffer, action) end
-
-    -- self:linkMarks(str)
 end
 
 function UnRepl:callback (response)

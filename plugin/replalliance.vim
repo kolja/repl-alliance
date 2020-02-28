@@ -58,19 +58,13 @@ function EvalCommand(type, ...)
 endfunction
 
 function ConnectCommand(...)
-    let repls = ["NRepl", "SocketRepl", "prepl"]
-    let g:replProtocol = repls[input("Connect with NRepl[0] socket Repl[1] or prepl[2] ", 0)]
+    let repls = ["nrepl", "srepl", "prepl", "unrepl"]
+    let sel = input("Connect with:\n[0] NRepl (default)\n[1] socket Repl\n[2] prepl or\n[3] unrepl\n-> ")
+    let g:replProtocol = empty(repls[sel]) ? "nrepl" : repls[sel]
+    redraw
     let g:replHost = input("Host : ", "127.0.0.1")
     let g:replPort = input("Port : ", "3722")
     let g:replNamespace = input("Namespace : ", "user")
-    if g:replProtocol ==? "NRepl"
-        lua repl = require("nrepl"):connect()
-    elseif g:replProtocol ==? "PRepl"
-        lua repl = require("prepl"):connect()
-    elseif replProtocol ==? "UnRepl"
-        lua repl = require("unrepl"):connect()
-    else
-        lua repl = require("srepl"):connect()
-    endif
+    lua repl = require(vim.api.nvim_get_var("replProtocol")):connect()
 endfunction
 

@@ -19,6 +19,10 @@ function Helpers.unescape(str)
     end
 end
 
+function Helpers.isempty(str)
+    return str == ""
+end
+
 function Helpers.occur(str, tag)
     local t = {}
     local i = 0
@@ -86,7 +90,17 @@ end
 function Helpers.filter(fn, t)
     local filtered = {}
     for k,v in pairs(t) do
-        if fn(v) then
+        if fn(v,k) then
+            table.insert(filtered,v)
+        end
+    end
+    return filtered
+end
+
+function Helpers.remove(fn, t)
+    local filtered = {}
+    for k,v in pairs(t) do
+        if not fn(v,k) then
             table.insert(filtered,v)
         end
     end

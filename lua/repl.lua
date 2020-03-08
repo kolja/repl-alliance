@@ -1,6 +1,7 @@
 
 local uv = require('luv')
 local h = require('helpers')
+local Log = require('log')
 local Repl = {}
 
 function Repl:show_virtual(text)
@@ -27,7 +28,7 @@ function Repl:new (o)
         _rans = vim.api.nvim_create_namespace("RAnamespace"), -- repl-alliance namespace
         _virtual = h.getvar("replVirtual"),
         _buffer = -1,
-        _log = {}
+        _log = Log:new()
     }
     setmetatable(obj, self)
     self.__index = self
@@ -52,31 +53,19 @@ function Repl:connect(host, port, namespace)
 end
 
 function Repl:send_blob(blobpath)
+    local opts = options or {}
     local path = blobpath or h.getvar("replBlobPath")
     if not path then return end
     local size = vim.loop.fs_stat(path)["size"]
     local fh = vim.loop.fs_open(path, "r", 1)
     local blobfile = vim.loop.fs_read(fh, size, 0):gsub("\n", " ")
-    self:eval(blobfile)
+    self:eval(blobfile, opts)
     return self
 end
 
-function Repl:log(msg, where, elision)
-    -- log: type (eg: eval, debug), code, lua
-    local field = where or "debug"
-    local i=0
-    local lastentry = h.last(self._log)
-    if not lastentry then
-        table.insert(self._log,{[field]={msg}})
-    elseif not lastentry[field] then
-        i = table.maxn(self._log)
-        lastentry[field] = {msg}
-        table.insert(self._log,i,lastentry)
-    else
-        i = table.maxn(self._log)
-        table.insert(lastentry[field],msg)
-        table.insert(self._log,i,lastentry)
-    end
+-- can I just assign Repl.log = self._log.log or something?
+function Repl:log(key, msg, group_id)
+    return self._log:log(key, msg, group_id)
 end
 
 function Repl:print (...)

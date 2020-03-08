@@ -15,14 +15,13 @@ local concat = function(tbl, separator)
     return table.concat(elements, separator)
 end
 
-Clojure.intercept = h.identity
 Clojure.buffer = nil
 Clojure.elision_symbol = "●"
 Clojure.elisions = {}
 
 function Clojure:new (config)
 
-    Clojure.intercept = config.intercept or Clojure.intercept
+    Clojure.intercept = Clojure.intercept or config.intercept -- fails if no initial {} is passed
     Clojure.buffer = Clojure.buffer or config.buffer
     Clojure.elision_symbol = Clojure.elision_symbol or config.elision_symbol
 
@@ -86,28 +85,33 @@ function Clojure:str()
     return str
 end
 
+function Clojure:register_elisions(elisions, log_id) -- TODO: don't pass elisons. Expose globally, somewhere.
+    if self:is("tagged_literal") and self.children[1]:is("elision") then
+        local action = self:get({2, ":get"})
+        local key = action:get({2})
+        table.insert(elisions, {
+            key = key:str(),
+            log_id = log_id,
+            action = action:str(),
+            resolve = function(obj)
+                -- perhaps do to_lua and register_elisions outside?
+                self.children[1].resolved = obj:to_lua():register_elisions(elisions)
+            end
+        })
+    elseif self:len() > 0 then
+        for i,child in ipairs(self.children) do
+            child:register_elisions(elisions, log_id)
+        end
+    end
+    return self
+end
+
 function Clojure:is(t)
     return (self.ratype == t)
 end
 
-function Clojure:resolve(id, obj)
-    if self:is("tagged_literal") and self.children[1]:is("elision") then
-        if not obj then
-            -- call eval
-            local action = self.children[2]:get({":get"})
-            local key = action:get({2})
-            if id == key then -- this is the elision we are looking for
-                repl:eval(action)
-            end
-        else
-            self.children[1].resolved = obj
-        end
-    else
-        self:each(function(element)
-            Clojure:resolve(id, obj)
-        end)
-    end
-    return self
+function Clojure:len()
+    return #(self.children)
 end
 
 function Clojure:each(fn)
@@ -117,24 +121,20 @@ function Clojure:each(fn)
 end
 
 function Clojure:get(path)
-    if type(path) == "string" then path = {path} end
+    if not (type(path) == "table") then path = {path} end
     -- will never return nil. Will always at least return something
     -- that get(), str() or val() can be called on.
     local m = {
        get = function() return self end,
-       str = function() return "nil" end,
+       str = function() return nil end,
        val = function() return nil end,
        is =  function() return false end
     }
+    if #path == 0 then return m end
 
-    if #path == 0 then
-        return self
-    end
     local get_key = function(obj, key)
-        if not obj:is("hash_map") then
-            error("trying to access "..key.." in "..obj.ratype)
-        end
-        local n = #(obj.children)
+        if not obj:is("hash_map") then return nil end
+        local n = obj:len()
         local result = m
         if n<2 then return m end
         for i=1,n-1,2 do
@@ -149,11 +149,13 @@ function Clojure:get(path)
     if type(key) == "number" then
         result = self.children[key] or m
     elseif type(key) == "string" then
-        result = get_key(self, key)
+        result = get_key(self, key) or m
     else
         result = m
     end
-    return result:get(h.rest(path))
+    local rest = h.rest(path)
+    if #rest > 0 then return result:get(rest) end
+    return result
 end
 
 types = {

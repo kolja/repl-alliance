@@ -125,56 +125,6 @@ function UnRepl:callback (response)
             return text
         end}
 
-    local channel_action = {
-        ["debug"] = function(data)
-            -- do nothing
-        end,
-        [":unrepl/hello"] = function(data)
-            local res = ""
-            local session = data:get({":session"}):str()
-            if session then
-                res = res .. "session: " .. session .."\n"
-            end
-            res = res .. data:get({":actions"}):str()
-            return res
-        end,
-        [":prompt"] = function(data)
-            local res = ""
-            local column = tonumber(data:get({":column"}):str())
-            if column == 1 then
-                local ns = data:get({"clojure.core/*ns*", 2, 1}):str()
-                res = ns.."->"
-            end
-            return res
-        end,
-        [":file"] = function(data)
-            -- do nothing
-        end,
-        [":out"] = function(data)
-            -- do nothing
-        end,
-        [":eval"] = function(data)
-            local key = data:get({":elision_key"}):str()
-            if (not key) then
-                return data:str()
-                -- vim.api.nvim_command("let @+='"..result.."'") -- copy the result
-            else
-                local e = h.filter(function(el)
-                    return el.key == key
-                end, self.elisions)[1]
-                if e then
-                    e.resolve(data:get({":elision_data"}))
-                    self.elisions = h.remove(function(el)
-                        return el.key == key
-                    end, self.elisions)
-                else
-                    return "unknown elision"
-                end
-                -- ok, log is updated now. needs re-render
-                -- but which log-entry needs re-render exactly?
-            end
-        end
-    }
     for i = 0,ts:root():named_child_count() - 1 do
         local response = clj:new({
             node = ts:root():named_child(i),

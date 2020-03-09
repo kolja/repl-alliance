@@ -23,6 +23,17 @@ function Helpers.isempty(str)
     return str == ""
 end
 
+function Helpers.run_in_buffer(fn, buffer)
+    local currentWin = vim.api.nvim_get_current_win()
+    local cursor_pos = vim.api.nvim_win_get_cursor(currentWin)
+    local currentBuffer = vim.api.nvim_get_current_buf()
+    vim.api.nvim_set_current_buf(buffer)
+    local ret = fn(buffer)
+    vim.api.nvim_set_current_buf(currentBuffer)
+    vim.api.nvim_win_set_cursor(currentWin, cursor_pos)
+    return ret
+end
+
 function Helpers.occur(str, tag)
     local t = {}
     local i = 0
@@ -35,7 +46,8 @@ function Helpers.occur(str, tag)
 end
 
 function Helpers.log(arg)
-    vim.api.nvim_command("call input(\""..tostring(arg).."\")")
+    local str = string.gsub(tostring(arg), "\n", "")
+    vim.api.nvim_command("call input(\""..str.."\")")
 end
 
 function Helpers.identity(arg)

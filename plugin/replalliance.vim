@@ -3,6 +3,7 @@ nnoremap <silent> <leader>e :set opfunc=EvalCommand<CR>g@
 vnoremap <silent> <leader>e :<C-U>call EvalCommand("visual")<CR>
 nnoremap <silent> <leader>E :call EvalCommand("prompt")<CR>
 vnoremap <silent> <leader>E :<C-U>call EvalCommand("populate")<CR>
+nnoremap <silent> <leader>. :lua repl:resolve_elision()<CR>
 
 command! RAloadfile :call luaeval("repl:loadfile()")
 command! RAdescribe :call luaeval("repl:describe()")
@@ -12,7 +13,7 @@ command! -nargs=+ RAeval :call EvalCommand("normal", <q-args>)
 
 " repl-window (Filetype repl) commands
 command! RAnextElision lua repl:next_elision()
-command! RAevalElision lua repl:eval_elision()
+command! RAresolveElision lua repl:resolve_elision()
 autocmd FileType repl nnoremap <leader>n :RAnextElision<cr>
 " autocmd FileType repl nnoremap E :RAevalElision<cr>
 

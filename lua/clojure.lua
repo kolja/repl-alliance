@@ -28,6 +28,7 @@ function Clojure:new (config)
     local conf = config or {}
     local obj = vim.tbl_extend( "keep", conf, {
         node = conf.node,
+        root = self,
         buffer = Clojure.buffer,
         ratype = conf.node:type(),
         children = {},
@@ -39,6 +40,8 @@ function Clojure:new (config)
 end
 
 function Clojure:add(node)
+    node.root = self.root
+    node.parent = self
     table.insert(self.children, node)
     return self
 end
@@ -47,6 +50,13 @@ function Clojure:to_lua()
     local node = self.node
     local f = types[node:type()] or types["error"]
     return f(self)
+end
+
+function Clojure:splice(obj)
+    local parent = self.parent
+    table.remove(parent.children, #(parent.children))
+    for k,v in ipairs(obj.children) do parent:add(v) end
+    return self
 end
 
 function Clojure:raw_string()
@@ -83,27 +93,6 @@ function Clojure:str()
     end
 
     return str
-end
-
-function Clojure:register_elisions(elisions, log_id) -- TODO: don't pass elisons. Expose globally, somewhere.
-    if self:is("tagged_literal") and self.children[1]:is("elision") then
-        local action = self:get({2, ":get"})
-        local key = action:get({2})
-        table.insert(elisions, {
-            key = key:str(),
-            log_id = log_id,
-            action = action:str(),
-            resolve = function(obj)
-                -- perhaps do to_lua and register_elisions outside?
-                self.children[1].resolved = obj:to_lua():register_elisions(elisions)
-            end
-        })
-    elseif self:len() > 0 then
-        for i,child in ipairs(self.children) do
-            child:register_elisions(elisions, log_id)
-        end
-    end
-    return self
 end
 
 function Clojure:is(t)

@@ -31,11 +31,13 @@ function UnRepl:bufferChange()
 end
 
 function UnRepl:eval(code, options)
+    local log = self._log
     local wrap = function (code)
         local str = ""
         if (options and options[":elision_key"]) then
             str =  "{:elision_data "..code.." :elision_key "..options[":elision_key"].."}\n"
         else
+            log.code = code
             str = code.."\n"
         end
         return str
@@ -62,30 +64,23 @@ function UnRepl:print()
     local action = {
         -- ["debug"] [":file"] [":out"] -- ignore
         [":unrepl/hello"] = function(data)
-            local res = "hello unrepl"
-            --local session = data:get({":session"}):str()
-            --if session then
-            --    res = res .. "session: " .. session .."\n"
-            --end
-            --res = res .. data:get({":actions"}):str()
-            return res
+            return "hello unrepl"
         end,
         [":prompt"] = function(data)
-            local res = ""
-            local column = tonumber(data:get({":column"}):str())
-            local line = tonumber(data:get({":line"}):str())
             local ns = data:get({"clojure.core/*ns*", 2, 1}):str()
-            if line > self.last_line and column == 1 then
-                UnRepl.last_line = line
-                res = ns.."->"
-            end
-            return res
+            log.namespace = ns or log.namespace
+            return ""
+        end,
+        [":out"] = function(data)
+            return data
         end,
         [":eval"] = function(data)
             local key = data:get({":elision_key"}):str()
+            local prompt = (log.namespace or "").."-> "..(log.code or "")
             if (not key) then
-                return data:str().."\n"
-                -- vim.api.nvim_command("let @+='"..result.."'") -- copy the result
+                local result = data:str()
+                vim.api.nvim_command("let @+='"..result.."'") -- copy the result
+                return prompt.."\n"..result
             else
                 local e = log:get_elision(key)
                 if e then

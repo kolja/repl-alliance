@@ -23,14 +23,25 @@ function Helpers.isempty(str)
     return str == ""
 end
 
-function Helpers.run_in_buffer(fn, buffer)
-    local currentWin = vim.api.nvim_get_current_win()
-    local cursor_pos = vim.api.nvim_win_get_cursor(currentWin)
-    local currentBuffer = vim.api.nvim_get_current_buf()
-    vim.api.nvim_set_current_buf(buffer)
-    local ret = fn(buffer)
-    vim.api.nvim_set_current_buf(currentBuffer)
-    vim.api.nvim_win_set_cursor(currentWin, cursor_pos)
+function Helpers.run_in_buffer(fn, target_buf)
+
+    local target_win = Helpers.filter(function(win)
+        return target_buf == vim.api.nvim_win_get_buf(win)
+    end, vim.api.nvim_list_wins())[1]
+    local current_win = vim.api.nvim_get_current_win()
+    local cursor_pos = vim.api.nvim_win_get_cursor(current_win)
+    local current_buf = vim.api.nvim_get_current_buf()
+
+    vim.api.nvim_set_current_win(target_win)
+    -- vim.api.nvim_set_current_buf(target_buf)
+
+    local ret = vim.schedule_wrap(function(tb)
+        fn(tb)
+    end)(target_buf)
+
+    vim.api.nvim_set_current_win(current_win)
+    -- vim.api.nvim_set_current_buf(current_buf)
+    vim.api.nvim_win_set_cursor(current_win, cursor_pos)
     return ret
 end
 

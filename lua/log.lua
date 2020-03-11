@@ -74,11 +74,10 @@ function Log:print(buffer, action)
         end
     end
 
-    h.run_in_buffer( function(buffer)
-        for i,logentry in ipairs(entries) do
-            pr(logentry, buffer, action)
-        end
-    end, buffer)
+    for i,logentry in ipairs(entries) do
+        pr(logentry, buffer, action)
+    end
+
 end
 
 function Log:register_elisions(obj)

@@ -10,7 +10,7 @@ function UnRepl:connect (host, port, ns)
     if not self._rbuffer then -- the raw response goes to _rbuffer. Not the human readable output.
         self._rbuffer = vim.api.nvim_create_buf(true, true) -- listed (false), scratch (true)
     end
-    vim.treesitter.add_language(pluginroot.."bin/clojure.so", "clojure")
+    vim.treesitter.require_language("clojure", pluginroot.."bin/clojure.so")
     parser = vim.treesitter.get_parser(self._rbuffer, "clojure")
 
     self.elision_index = 0

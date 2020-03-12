@@ -87,7 +87,7 @@ function Clojure:str()
     end
 
     -- string-middleware:
-    local interc = self.intercept[self.ratype]
+    local interc = self.intercept and self.intercept[self.ratype]
     if interc then
         str = interc(self, str)
     end

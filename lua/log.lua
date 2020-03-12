@@ -136,8 +136,8 @@ function Log:debug()
     for i, logentry in ipairs(self.entries) do
         pr("---"..i.."---")
         pr(table.concat(vim.tbl_keys(logentry), ", "))
-        if logentry[":eval"] then
-            pr(vim.inspect(logentry[":eval"]))
+        if logentry.raw then
+            pr(vim.inspect(logentry.raw))
         end
     end
 end

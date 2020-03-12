@@ -74,6 +74,15 @@ function UnRepl:print()
         [":out"] = function(data)
             return data
         end,
+        [":exception"] = function(data)
+            local via = data:get({":ex", 2, 1, 2, ":via", 1})
+            local tp = via:get(":type"):str() or ""
+            local msg = via:get(":message"):str()
+            msg = (msg and ": "..msg) or ""
+            local at = via:get(":at"):str()
+            at = (at and "\nat "..at) or ""
+            return tp..msg..at
+        end,
         [":eval"] = function(data)
             local key = data:get({":elision_key"}):str()
             local prompt = (log.namespace or "").."-> "..(log.code or "")
@@ -95,12 +104,11 @@ function UnRepl:print()
             end
         end
     }
-    -- can use self (instead of repl:getReplWin() here?
-    if repl:getReplWin() then log:print(buffer, action) end
+    if self:getReplWin() then log:print(buffer, action) end
 end
 
-function UnRepl:callback (response)
-    vim.api.nvim_buf_set_lines(self._rbuffer, 0, -1, false, vim.split(response, "\n"))
+function UnRepl:callback (resp)
+    vim.api.nvim_buf_set_lines(self._rbuffer, 0, -1, false, vim.split(resp, "\n"))
 
     local log = self._log
     local ts = parser:parse()
@@ -121,6 +129,10 @@ function UnRepl:callback (response)
                 text = literal:str()
             elseif tagstr == "#unrepl/string" then
                 text = literal:str()
+            elseif tagstr == "#unrepl/browsable" then
+                text = literal:str()
+            else
+                text = literal:str()
             end
             return text
         end}
@@ -139,6 +151,7 @@ function UnRepl:callback (response)
         local id = tonumber(lua:get({3}):str())
 
         local logindex = log:log(key, val, id)
+        -- log:log("raw", resp, id)
         local logentry = log.entries[logindex]
 
         local old_id = nil

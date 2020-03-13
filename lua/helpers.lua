@@ -4,6 +4,19 @@ function Helpers.p(...)
     print(vim.inspect(...))
 end
 
+function Helpers.pr(str)
+    local s = ""
+    if type(str) == "string" then
+        s = str
+    else
+        s = vim.inspect(str)
+    end
+    s = vim.split(s, "\n")
+    local buffer = repl:buffer()
+    local n = vim.api.nvim_buf_line_count(buffer)
+    vim.api.nvim_buf_set_lines(buffer, n, -1, false, s)
+end
+
 function Helpers.unescape(str)
     -- anytype          => vim.inspect(anytype)
     -- "string"         => "string" // unchanged

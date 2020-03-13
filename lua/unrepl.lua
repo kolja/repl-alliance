@@ -104,7 +104,7 @@ function UnRepl:print()
             end
         end
     }
-    if self:getReplWin() then log:print(buffer, action) end
+    if self:getReplWin() then log:print(action) end
 end
 
 function UnRepl:callback (resp)
@@ -146,12 +146,12 @@ function UnRepl:callback (resp)
 
         local lua = response:to_lua()
 
-        local key = lua:get({1}):str()
+        local key = lua:get({1}):str() or ":debug"
         local val = lua:get({2})
         local id = tonumber(lua:get({3}):str())
 
         local logindex = log:log(key, val, id)
-        -- log:log("raw", resp, id)
+        log:log(":raw", resp, id) -- for debugging
         local logentry = log.entries[logindex]
 
         local old_id = nil

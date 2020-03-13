@@ -1,87 +1,56 @@
 local h = require('helpers')
+local Logentry = require('logentry')
 local Log = {}
 
-function Log:new (o)
-    local obj = o or {
+function Log:new(opts)
+    local options = opts or {}
+    local obj = vim.tbl_extend("keep", options, {
+        action = nil, -- pass as an option or directly to print funciton
         entries = {},
         index = {}, -- maps group_id to entry-index
-        bookmark = 0,
         elisions = {}
-    }
+    })
     setmetatable(obj, self)
     self.__index = self
     return obj
 end
 
-function Log:needs_refresh(id)
-    local entry = self.entries[id]
-    if not entry then return nil end
-
-    entry.meta.needs_refresh = true
-    return id
-end
-
 function Log:log(key, msg, group_id)
     local id = self.index[group_id]
     local entry = self.entries[id]
-    if entry and entry[key] then
-        table.insert(entry[key], msg)
-    elseif entry then
-        entry[key] = {msg}
-    elseif group_id then
-        table.insert(self.entries, {[key] = {msg}})
-        self.index[group_id] = #(self.entries)
-        entry = h.last(self.entries)
-        id = #(self.entries)
+    if entry then
+        entry:add(key, msg)
     else
-        table.insert(self.entries, {debug = {msg}})
-        entry = h.last(self.entries)
+        entry = Logentry:new(self)
+        entry:add(key, msg)
+        table.insert(self.entries, entry)
         id = #(self.entries)
+        if group_id then self.index[group_id] = id end
     end
-    entry.meta = {}
-    return self:needs_refresh(id)
+    return id
 end
 
-function Log:print(buffer, action)
+function Log:each(fn)
+    for k,v in ipairs(self.entries) do
+        fn(v,k)
+    end
+end
 
+function Log:print(action)
+    if not self.buffer then
+        self.buffer = repl:buffer()
+    end
     local replWin = repl:getReplWin()
     if not replWin then return end
 
-    local entries = h.filter(function(entry,i)
-        local state = entry.meta.needs_refresh
-        entry.meta.needs_refresh = false
-        return state
-    end, self.entries)
-
-    local pr = function(entry, buffer, action)
-        local out = ""
-        local n = vim.api.nvim_buf_line_count(buffer)
-        for channel,val in pairs(entry) do
-            local ac = action[channel]
-            if ac then
-                for i, el in ipairs(val) do
-                    out = out .. ac(el)
-                end
-            end
+    self:each(function(entry)
+        if entry.meta.needs_refresh then
+            entry:print(action)
         end
-        if not h.isempty(string.gsub(out, "[%s\n]+", "")) then
-            out = vim.split(out, "\n")
-            local from = entry.meta.from or n
-            local to = entry.meta.to or (from + #out)
-            vim.api.nvim_buf_set_lines(buffer, from, to, false, out)
-            entry.meta.from = from
-            entry.meta.to = to
-        end
-    end
-
-    for i,logentry in ipairs(entries) do
-        pr(logentry, buffer, action)
-    end
-
+    end)
 end
 
 function Log:register_elisions(obj)
-
     if obj:is("tagged_literal") and obj.children[1]:is("elision") then
         local action = obj:get({2, ":get"})
         local key = action:get({2})
@@ -128,18 +97,12 @@ function Log:remove_elision(key)
 end
 
 function Log:debug()
-    local buffer = repl:buffer()
-    local pr = function(str)
-        local n = vim.api.nvim_buf_line_count(buffer)
-        vim.api.nvim_buf_set_lines(buffer, n, -1, false, vim.split(str,"\n"))
-    end
-    for i, logentry in ipairs(self.entries) do
-        pr("---"..i.."---")
-        pr(table.concat(vim.tbl_keys(logentry), ", "))
-        if logentry.raw then
-            pr(vim.inspect(logentry.raw))
-        end
-    end
+    self:each(function(entry, i)
+        h.pr(vim.tbl_keys(entry.channels))
+        --entry:print({[":raw"] = function(e)
+        --    return e
+        --end})
+    end)
 end
 
 function Log:last()

@@ -28,24 +28,15 @@ function Logentry:print(act)
     local meta = self.meta
     local buffer = self.log.buffer
     local action = act or self.log.action
-    local out = ""
+    local out = h.filter(function(line)
+        return not h.isempty(line)
+    end, vim.split( action(self), "\n"))
     local n = vim.api.nvim_buf_line_count(buffer)
-    for channel,val in pairs(self.channels) do
-        local ac = action[channel]
-        if ac then
-            for i, el in ipairs(val) do
-                out = out .. ac(el)
-            end
-        end
-    end
-    if not h.isempty(string.gsub(out, "[%s\n]+", "")) then
-        out = vim.split(out, "\n")
-        local from = meta.from or n
-        local to = meta.to or (from + #out)
-        vim.api.nvim_buf_set_lines(buffer, from, to, false, out)
-        meta.from = from
-        meta.to = to
-    end
+    local from = meta.from or n
+    local to = from + #out
+    vim.api.nvim_buf_set_lines(buffer, from, to, false, out)
+    meta.from = from
+    meta.to = to
     meta.needs_refresh = false
 end
 

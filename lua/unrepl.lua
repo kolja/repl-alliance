@@ -35,6 +35,7 @@ function UnRepl:eval(code, options)
     local wrap = function (code)
         local str = ""
         if (options and options[":elision_key"]) then
+            log.code = nil
             str =  "{:elision_data "..code.." :elision_key "..options[":elision_key"].."}\n"
         else
             log.code = code
@@ -57,54 +58,70 @@ function UnRepl:resolve_elision(n)
 end
 
 function UnRepl:print()
+
+    -- if not self:getReplWin() then return false end
+
     local log = self._log
     local elisions = log.elisions
-    local buffer = self:buffer()
 
-    local action = {
-        -- ["debug"] [":file"] [":out"] -- ignore
-        [":unrepl/hello"] = function(data)
-            return "hello unrepl"
-        end,
-        [":prompt"] = function(data)
-            local ns = data:get({"clojure.core/*ns*", 2, 1}):str()
-            log.namespace = ns or log.namespace
-            return ""
-        end,
-        [":out"] = function(data)
-            return data
-        end,
-        [":exception"] = function(data)
-            local via = data:get({":ex", 2, 1, 2, ":via", 1})
+    log:print( function(entry)
+        -- ["debug"] [":file"] -- ignore
+        local ret = ""
+        local cnls = entry.channels
+        local meta = entry.meta
+        meta.code = log.code or ""
+        local data = {
+            hello = cnls[":unrepl/hello"],
+            prompt = cnls[":prompt"],
+            out = cnls[":out"],
+            exception = cnls[":exception"],
+            eval = cnls[":eval"]
+        }
+
+        if data.hello then ret = "hello unrepl" end
+
+        if data.exception then
+            local exception = data.exception[1]
+            local via = exception:get({":ex", 2, 1, 2, ":via", 1})
             local tp = via:get(":type"):str() or ""
             local msg = via:get(":message"):str()
             msg = (msg and ": "..msg) or ""
             local at = via:get(":at"):str()
             at = (at and "\nat "..at) or ""
-            return tp..msg..at
-        end,
-        [":eval"] = function(data)
-            local key = data:get({":elision_key"}):str()
-            local prompt = (log.namespace or "").."-> "..(log.code or "")
+            ret = tp..msg..at
+        end
+
+        if data.prompt then
+            local prompt = data.prompt[1]
+            local ns = prompt:get({"clojure.core/*ns*", 2, 1}):str()
+            meta.namespace = ns or ""
+        end
+
+        if data.out then ret = vim.inspect(data.out) end
+
+        if data.eval then
+            local eval = data.eval[1]
+            local key = eval:get({":elision_key"}):str()
+            local prompt = (meta.namespace or "").."-> "..(meta.code or "")
             if (not key) then
-                local result = data:str()
+                local result = eval:str()
                 vim.api.nvim_command("let @+='"..result.."'") -- copy the result
-                return prompt.."\n"..result
+                repl:show_virtual(result)
+                ret = prompt.."\n"..result
             else
                 local e = log:get_elision(key)
                 if e then
-                    e.resolve(data:get({":elision_data"}))
+                    e.resolve(eval:get({":elision_data"}))
                     log:remove_elision(key)
                     log.entries[e.log_id].meta.needs_refresh = true
                 else
                     vim.api.nvim_err_writeln("unknown elision: "..key)
-                    return ""
                 end
-                return ""
+                ret = ""
             end
         end
-    }
-    if self:getReplWin() then log:print(action) end
+        return ret
+    end)
 end
 
 function UnRepl:callback (resp)
@@ -125,13 +142,7 @@ function UnRepl:callback (resp)
                 text = literal.children[1]:str().."/"..literal.children[2]:str()
             elseif tagstr == "#unrepl/*ns*" then
                 text = literal.children[1]:str()
-            elseif tagstr == "#unrepl/ns" then
-                text = literal:str()
-            elseif tagstr == "#unrepl/string" then
-                text = literal:str()
-            elseif tagstr == "#unrepl/browsable" then
-                text = literal:str()
-            else
+            else -- if vim.tbl_contains({"#unrepl/ns", "#unrepl/string", "#unrepl/browsable"}, tagstr) then
                 text = literal:str()
             end
             return text

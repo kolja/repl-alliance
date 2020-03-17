@@ -32,8 +32,35 @@ function Helpers.unescape(str)
     end
 end
 
-function Helpers.isempty(str)
-    return str == ""
+function Helpers.every(fn, coll)
+    if #coll == 0 then return true end
+    local res = true
+    for k,v in pairs(coll) do
+        res = res and fn(v)
+    end
+    return res
+end
+
+function Helpers.isemptystr(str)
+    return string.gsub(str, "^%s+$", "") == ""
+end
+
+function Helpers.isempty(elem, depth)
+    if type(elem) == "string" then
+        return Helpers.isemptystr(elem)
+    end
+    if type(depth) == "number" then depth = depth - 1 end
+    if type(elem) == "table" then
+        if (type(depth) == "number") and depth < 0 then
+            return false
+        else
+            return Helpers.every(function(element)
+                return Helpers.isempty(element, depth)
+            end, elem)
+        end
+    else
+        return Helpers.isemptystr(elem)
+    end
 end
 
 function Helpers.run_in_buffer(fn, target_buf)
